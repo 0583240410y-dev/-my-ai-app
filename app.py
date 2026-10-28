@@ -5,8 +5,8 @@ import json
 
 app = Flask(__name__)
 
-# קבלת מפתח ה-AI מתוך ההגדרות של הענן (Render)
-AI_API_KEY = os.getenv("AI_API_KEY", "")
+# קבלת מפתח ה-Gemini מתוך ההגדרות של הענן (Render)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -14,43 +14,76 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>עוזר ה-AI החכם שלך</title>
+    <title>AI Pro - עוזר הבינה המלאכותית המתקדם שלך</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 450px; text-align: center; }
-        h1 { color: #333; font-size: 22px; margin-bottom: 10px; }
-        p { color: #666; font-size: 14px; margin-bottom: 20px; }
-        .chat-box { border: 1px solid #ddd; border-radius: 8px; height: 250px; overflow-y: auto; padding: 10px; margin-bottom: 15px; text-align: right; background: #fafafa; }
-        .message { margin-bottom: 10px; line-height: 1.4; }
-        .user-msg { color: #0056b3; font-weight: bold; }
-        .ai-msg { color: #333; }
-        input[type="text"] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; font-size: 14px; }
-        button { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; width: 100%; }
-        button:hover { background-color: #0056b3; }
-        .pricing { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
-        .btn-upgrade { background-color: #28a745; margin-top: 5px; }
-        .btn-upgrade:hover { background-color: #218838; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 90vh; }
+        .container { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); width: 100%; max-width: 500px; text-align: center; }
+        h1 { color: #1a1a1a; font-size: 24px; margin-bottom: 8px; font-weight: 700; }
+        p.subtitle { color: #666; font-size: 14px; margin-bottom: 20px; }
+        
+        /* תבניות מהירות */
+        .templates { display: flex; gap: 8px; justify-content: center; margin-bottom: 15px; flex-wrap: wrap; }
+        .template-btn { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-weight: 600; }
+        .template-btn:hover { background: #4f46e5; color: white; }
+
+        .chat-box { border: 1px solid #e5e7eb; border-radius: 12px; height: 280px; overflow-y: auto; padding: 15px; margin-bottom: 15px; text-align: right; background: #fafafa; }
+        .message { margin-bottom: 12px; line-height: 1.5; font-size: 14px; }
+        .user-msg { color: #1e40af; font-weight: 600; background: #e0e7ff; padding: 8px 12px; border-radius: 10px 10px 0 10px; display: inline-block; max-width: 80%; float: left; clear: both; }
+        .ai-msg { color: #1f2937; background: #ffffff; padding: 8px 12px; border-radius: 10px 10px 10px 0; border: 1px solid #e5e7eb; display: inline-block; max-width: 85%; float: right; clear: both; white-space: pre-wrap; }
+        
+        .input-area { display: flex; gap: 8px; margin-bottom: 15px; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; }
+        input[type="text"]:focus { border-color: #4f46e5; }
+        button.send-btn { background-color: #4f46e5; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background 0.2s; }
+        button.send-btn:hover { background-color: #4338ca; }
+        
+        .pricing { margin-top: 20px; border-top: 1px solid #f3f4f6; padding-top: 15px; }
+        .btn-upgrade { background-color: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; width: 100%; transition: background 0.2s; }
+        .btn-upgrade:hover { background-color: #059669; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>עוזר ה-AI החכם שלך</h1>
-        <p>שאל אותי כל שאלה, נסח מיילים או קבל תשובות חכמות בשניות.</p>
+        <h1>AI Pro - עוזר חכם</h1>
+        <p class="subtitle">בחר תבנית מהירה או שאל כל שאלה לקבלת תשובה מיידית</p>
         
+        <!-- כפתורי תבניות חכמות -->
+        <div class="templates">
+            <button class="template-btn" onclick="setTemplate('email')">✉️ ניסוח מייל מקצועי</button>
+            <button class="template-btn" onclick="setTemplate('post')">📱 כתיבת פוסט שיווקי</button>
+            <button class="template-btn" onclick="setTemplate('summarize')">📝 סיכום טקסט</button>
+        </div>
+
         <div class="chat-box" id="chatBox">
-            <div class="message ai-msg"><b>AI:</b> שלום! אני כאן כדי לעזור לך. כתוב לי שאלה למטה...</div>
+            <div class="message ai-msg"><b>AI:</b> שלום! במה אוכל לעזור לך היום? תוכל לבחור תבנית מהירה למעלה או לכתוב לי הודעה.</div>
         </div>
         
-        <input type="text" id="userInput" placeholder="הקלד את השאלה או הבקשה שלך כאן..." onkeypress="handleKeyPress(event)">
-        <button onclick="sendMessage()">שלח הודעה</button>
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="הקלד את השאלה או הבקשה שלך..." onkeypress="handleKeyPress(event)">
+            <button class="send-btn" onclick="sendMessage()">שלח</button>
+        </div>
         
         <div class="pricing">
-            <p>רוצה גישה בלתי הגבלה לכל הפיצ'רים המתקדמים?</p>
+            <p style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">רוצה גישה בלתי מוגבלת לכל הפיצ'רים המתקדמים?</p>
             <button class="btn-upgrade" onclick="upgradePlan()">שדרג מנוי עכשיו</button>
         </div>
     </div>
 
     <script>
+        let currentPromptPrefix = "";
+
+        function setTemplate(type) {
+            const input = document.getElementById('userInput');
+            if (type === 'email') {
+                input.value = "נסח לי מייל מקצועי בנושא: ";
+            } else if (type === 'post') {
+                input.value = "כתוב פוסט שיווקי ויראלי לרשתות החברתיות על: ";
+            } else if (type === 'summarize') {
+                input.value = "סכם לי בנקודות קצרות את הטקסט הבא: ";
+            }
+            input.focus();
+        }
+
         function handleKeyPress(event) {
             if (event.key === 'Enter') {
                 sendMessage();
@@ -67,9 +100,8 @@ HTML_TEMPLATE = """
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
 
-            // הודעת המתנה
             const loadingId = 'loading-' + Date.now();
-            chatBox.innerHTML += `<div id="${loadingId}" class="message ai-msg" style="color: #888;">AI חושב...</div>`;
+            chatBox.innerHTML += `<div id="${loadingId}" class="message ai-msg" style="color: #6b7280;">AI מעבד תשובה...</div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
             
             try {
@@ -80,10 +112,13 @@ HTML_TEMPLATE = """
                 });
                 const data = await response.json();
                 
-                document.getElementById(loadingId).remove();
+                const loadingElem = document.getElementById(loadingId);
+                if (loadingElem) loadingElem.remove();
+                
                 chatBox.innerHTML += `<div class="message ai-msg"><b>AI:</b> ${data.reply}</div>`;
             } catch (error) {
-                document.getElementById(loadingId).remove();
+                const loadingElem = document.getElementById(loadingId);
+                if (loadingElem) loadingElem.remove();
                 chatBox.innerHTML += `<div class="message ai-msg" style="color: red;">שגיאה בתקשורת עם השרת.</div>`;
             }
             chatBox.scrollTop = chatBox.scrollHeight;
@@ -105,27 +140,27 @@ def home():
 def chat():
     user_message = request.json.get("message", "")
     
-    if not AI_API_KEY:
-        return jsonify({"reply": f"קיבלתי את ההודעה שלך: '{user_message}'. (כדי לקבל תשובות חכמות מ-AI אמיתי, יש להגדיר מפתח AI בהגדרות Render)."}), 200
+    if not GEMINI_API_KEY:
+        return jsonify({"reply": f"קיבלתי את ההודעה: '{user_message}'. (כדי לקבל תשובות AI אמיתיות, הגדר את GEMINI_API_KEY בהגדרות Render)."}), 200
 
-    # חיבור למודל הבינה המלאכותית (OpenAI)
+    # חיבור ל-Google Gemini API (חינמי!)
     try:
-        url = "https://api.openai.com/v1/chat/completions"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         payload = json.dumps({
-            "model": "gpt-3.5-turbo",
-            "messages": [{"role": "user", "content": user_message}]
+            "contents": [{
+                "parts": [{"text": user_message}]
+            }]
         })
         req = urllib.request.Request(url, data=payload.encode('utf-8'), headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {AI_API_KEY}"
+            "Content-Type": "application/json"
         })
         
         with urllib.request.urlopen(req) as response:
             res_data = json.loads(response.read().decode('utf-8'))
-            ai_reply = res_data["choices"][0]["message"]["content"]
+            ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
             return jsonify({"reply": ai_reply})
     except Exception as e:
-        return jsonify({"reply": "אירעה שגיאה בעיבוד הבקשה מול שרת ה-AI."}), 200
+        return jsonify({"reply": "אירעה שגיאה בעיבוד הבקשה מול שרת ה-Gemini."}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
